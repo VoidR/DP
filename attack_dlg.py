@@ -156,18 +156,18 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
             if args.encrypt:
                 # 若启用加密，在本地计算目标函数
                 c.local_computation(target, args.differential)
-            
+
             if args.dlg and epoch == args.epochs-1:
                 # 若开启深度泄露梯度攻击，并且当前为最后一个epoch，则执行攻击
                 print('本地训练结束，尝试进行深度泄露梯度攻击')
                 # 获取客户端原始梯度
                 original_dy_dx = server.get_client_grad(c.model)
-                deep_leakage_from_gradients(server.current_model, input.size(), target.size(), original_dy_dx, criterion)
-            else:
-                # 反向传播计算梯度
-                loss.backward()
-                # 将模型参数更新到服务器
-                server.aggregate(c.model)
+                deep_leakage_from_gradients(server.current_model, input.size(), target.size(), original_dy_dx, criterion)   
+
+            # 反向传播计算梯度
+            loss.backward()
+            # 将模型参数更新到服务器
+            server.aggregate(c.model)        
 
         # 梯度裁剪
         if args.clip > 0.:
@@ -213,14 +213,14 @@ def deep_leakage_from_gradients(model, data_size,lable_size,origin_grad,criterio
             print(iters, "%.4f" % current_loss.item())
             history.append(tt(dummy_data[0].cpu()))
 
-    plt.figure(figsize=(12, 8))
-    for i in range(30):
-        plt.subplot(3, 10, i + 1)
-        plt.imshow(history[i])
-        plt.title("iter=%d" % (i * 10))
-        plt.axis('off')
+    # plt.figure(figsize=(12, 8))
+    # for i in range(30):
+    #     plt.subplot(3, 10, i + 1)
+    #     plt.imshow(history[i])
+    #     plt.title("iter=%d" % (i * 10))
+    #     plt.axis('off')
 
-    plt.show()
+    # plt.show()
 
 if __name__ == '__main__':
     main()

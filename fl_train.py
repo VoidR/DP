@@ -14,6 +14,8 @@ import time
 import os
 from torch import nn
 
+from attack_dlg import deep_leakage_from_gradients
+
 model_names = ['resnet20', 'resnet32', 'resnet56', 'resnet110', 'resnet1202']
 
 parser = argparse.ArgumentParser(description='Propert ResNets for CIFAR10 in pytorch')
@@ -61,6 +63,9 @@ parser.add_argument('--clip', default=-1, type=float,
                   help='gradient clip')
 parser.add_argument('--seed', default=0, type=int,
                   help='random seed')
+
+parser.add_argument('--dlg', dest='dlg', action='store_true',
+                    help='dlg')
 
 # def criterion(y_pred, y_cls):
 #     return ((y_pred - y_cls)**2).sum(dim=-1).mean() / 2.
@@ -119,7 +124,10 @@ def main():
     s = Server(base_model)
     clients = []
     for i in range(args.clients):
-        c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+        if args.dlg :
+            c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+        else:
+            c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
         c_train_loader = torch.utils.data.DataLoader(c_train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
         clients.append(Client(c_train_loader))
 
@@ -269,6 +277,13 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
                 loss = criterion(c.model(input), target)
                 loss.backward()
                 server.aggregate(c.model)
+            
+            if args.dlg and epoch == args.epochs-1:
+                # 若开启深度泄露梯度攻击，并且当前为最后一个epoch，则执行攻击
+                print('本地训练结束，尝试进行深度泄露梯度攻击')
+                # 获取客户端原始梯度
+                original_dy_dx = server.get_client_grad(c.model)
+                deep_leakage_from_gradients(server.current_model, input.size(), target.size(), original_dy_dx, criterion)
 
         if args.clip > 0.:
             torch.nn.utils.clip_grad_norm_(server.current_model.parameters(), args.clip)
