@@ -4,7 +4,7 @@ import numpy as np
 from dataset import RetinopathyDatasetTrain
 from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize
 from albumentations.pytorch import ToTensor
-from torch.utils.data import Dataset,DataLoader
+from torch.utils.data import DataLoader
 import argparse
 import torch.backends.cudnn as cudnn
 import os
@@ -116,7 +116,6 @@ def main():
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[60, 120, 160], gamma=0.1)
 
     for epoch in range(args.start_epoch, args.epochs):
-
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
         train(train_loader, server, clients, criterion, optimizer, epoch)
         lr_scheduler.step()
@@ -125,7 +124,6 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
     """
         Run one train epoch
     """
-
     # switch to train mode
     server.current_model.train()
 
@@ -143,6 +141,8 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
             input, target = next(citers[ic])
             # input, target = input.cuda(), target.view(-1, 1).cuda()
             input = input.to(0, dtype=torch.float)
+
+            # 如果使用交叉熵损失函数，则将标签转换为LongTensor类型，否则为FloatTensor类型
             if args.celoss:
                 target = target.to(0)
             else:
@@ -160,16 +160,16 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
             if args.dlg and epoch == args.epochs-1:
                 # 若开启深度泄露梯度攻击，并且当前为最后一个epoch，则执行攻击
                 print('本地训练结束，尝试进行深度泄露梯度攻击')
-                original_dy_dx = torch.autograd.grad(loss, c.model.parameters(), create_graph=True)
-                deep_leakage_from_gradients(server.current_model, input, target, original_dy_dx, criterion, ic)
+                # 获取客户端原始梯度
+                original_dy_dx = server.get_client_grad(c.model)
+                deep_leakage_from_gradients(server.current_model, input.size(), target.size(), original_dy_dx, criterion)
             else:
                 # 反向传播计算梯度
                 loss.backward()
                 # 将模型参数更新到服务器
                 server.aggregate(c.model_params())
 
-
-
+        # 梯度裁剪
         if args.clip > 0.:
             torch.nn.utils.clip_grad_norm_(server.current_model.parameters(), args.clip)
 
@@ -178,13 +178,11 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
         loss.backward()
 
 
-
-
-def deep_leakage_from_gradients(model, origin_data,target,origin_grad,criterion): 
+def deep_leakage_from_gradients(model, data_size,lable_size,origin_grad,criterion): 
     tt = transforms.ToPILImage()
 
-    dummy_data = torch.randn(origin_data.size()).cuda()
-    dummy_label =  torch.randn(target.size()).cuda()
+    dummy_data = torch.randn(data_size).cuda()
+    dummy_label =  torch.randn(lable_size).cuda()
     optimizer = torch.optim.LBFGS([dummy_data, dummy_label] ,lr=0.1)
 
     history = []
@@ -196,8 +194,10 @@ def deep_leakage_from_gradients(model, origin_data,target,origin_grad,criterion)
             dummy_grad = torch.autograd.grad(dummy_loss, model.parameters(), create_graph=True)
             
             grad_diff = 0
+            # 欧式距离
             for gx, gy in zip(dummy_grad, origin_grad): 
                 grad_diff += ((gx - gy) ** 2).sum()
+                
             grad_diff.backward(retain_graph=True)
 
             return grad_diff

@@ -31,6 +31,15 @@ class Server(nn.Module):
         for m in self.current_model.fl_modules().items():
             m[1].update(float(lr) / self.counter)
 
+    def get_client_grad(self, client_model):
+        grad = []
+        current_modules = self.current_model.fl_modules()
+        for m_n, m in client_model.fl_modules().items():
+            current_layer = current_modules[m_n]
+            current_grad = current_layer.correction(client_model.gamma, client_model.v, m.post_data, m.get_rectify_grad(), m.get_r())
+            grad.append(current_grad)
+        return grad
+
             
 
 class Client(nn.Module):

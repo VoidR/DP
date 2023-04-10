@@ -39,10 +39,9 @@ target=metadata['cell_type_idx']
 train_features, test_features, train_targets, test_targets = train_test_split(features, target, test_size=0.005, random_state=6324)
 
 # 仅保存一张图像作为训练数据
-train_features_1 = train_features.iloc[[0,1,2,3,4]]
-train_targets_1 = train_targets.iloc[[0,1,2,3,4]]
+train_features_1 = train_features.iloc[[0,0,0,0,0]]
+train_targets_1 = train_targets.iloc[[0,0,0,0,0]]
 
-print('without one-hot',train_targets_1)
 # 获取测试图像的路径
 test_image_paths = test_features['path']
 
@@ -50,7 +49,6 @@ test_image_paths = test_features['path']
 def one_hot_encode(labels):
     n_labels = np.max(labels) + 1
 
-    # 
     n_labels = 7
     one_hot = np.eye(n_labels)[labels]
     return one_hot
@@ -58,7 +56,6 @@ def one_hot_encode(labels):
 # 对训练集和测试集进行独热编码
 train_targets_1, train_targets, test_targets = one_hot_encode(np.array(train_targets_1)), one_hot_encode(np.array(train_targets)), one_hot_encode(np.array(test_targets))
 
-print('with one-hot',train_targets_1)
 # 将数据转换为字典格式
 train_data = {
     'img_path': np.array(train_features['path']),
@@ -79,13 +76,3 @@ train_data_1 = {
 np.save(os.path.join(base_dir, 'train_meta_1.npy'), train_data_1)
 np.save(os.path.join(base_dir, 'train_meta.npy'), train_data)
 np.save(os.path.join(base_dir, 'test_meta.npy'), test_data)
-
-# data = np.load(os.path.join(base_dir, 'train_meta_1.npy'),allow_pickle=True).item()
-# print('shape :', data['label'].shape)
-# print('data :')
-# print(data['label'][0])
-
-# data = np.load(os.path.join(base_dir, 'train_meta.npy'),allow_pickle=True).item()
-# print('shape :', data['label'].shape)
-# print('data :')
-# print(data['label'][0])
