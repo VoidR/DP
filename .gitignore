@@ -1,0 +1,4 @@
+dataset/
+checkpoints/
+HAM10000/
+__pycache__/
