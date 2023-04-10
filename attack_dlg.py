@@ -104,7 +104,7 @@ def main():
         if args.dlg :
             # 如果是dlg，那么每个client只有一张图片
             c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
-            c_train_loader = DataLoader(c_train_dataset, batch_size=batch_size)
+            c_train_loader = DataLoader(c_train_dataset, batch_size=1)
             clients.append(Client(c_train_loader))
         else:
             c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
@@ -116,7 +116,7 @@ def main():
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[60, 120, 160], gamma=0.1)
 
     for epoch in range(args.start_epoch, args.epochs):
-        print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
+        print('epoch {} current lr {:.5e}'.format(epoch,optimizer.param_groups[0]['lr']))
         train(train_loader, server, clients, criterion, optimizer, epoch)
         lr_scheduler.step()
 
@@ -167,7 +167,7 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
                 # 反向传播计算梯度
                 loss.backward()
                 # 将模型参数更新到服务器
-                server.aggregate(c.model_params())
+                server.aggregate(c.model)
 
         # 梯度裁剪
         if args.clip > 0.:
@@ -181,9 +181,10 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
 def deep_leakage_from_gradients(model, data_size,lable_size,origin_grad,criterion): 
     tt = transforms.ToPILImage()
 
-    dummy_data = torch.randn(data_size).cuda()
-    dummy_label =  torch.randn(lable_size).cuda()
+    dummy_data = torch.randn(data_size).cuda().requires_grad_(True)
+    dummy_label =  torch.randn(lable_size).cuda().requires_grad_(True)
     optimizer = torch.optim.LBFGS([dummy_data, dummy_label] ,lr=0.1)
+    # optimizer = torch.optim.Adam([dummy_data, dummy_label],lr=0.1)
 
     history = []
     for iters in range(300):
@@ -197,6 +198,10 @@ def deep_leakage_from_gradients(model, data_size,lable_size,origin_grad,criterio
             # 欧式距离
             for gx, gy in zip(dummy_grad, origin_grad): 
                 grad_diff += ((gx - gy) ** 2).sum()
+                
+            # 余弦相似度
+            # for gx, gy in zip(dummy_grad, origin_grad):
+            #     grad_diff += (gx * gy).sum() / (gx.norm() * gy.norm())
                 
             grad_diff.backward(retain_graph=True)
 

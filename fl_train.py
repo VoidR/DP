@@ -14,8 +14,6 @@ import time
 import os
 from torch import nn
 
-from attack_dlg import deep_leakage_from_gradients
-
 model_names = ['resnet20', 'resnet32', 'resnet56', 'resnet110', 'resnet1202']
 
 parser = argparse.ArgumentParser(description='Propert ResNets for CIFAR10 in pytorch')
@@ -27,7 +25,7 @@ parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', dest='batch_size',default=32, type=int,
+parser.add_argument('-b', '--batch-size', default=32, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
@@ -64,8 +62,6 @@ parser.add_argument('--clip', default=-1, type=float,
 parser.add_argument('--seed', default=0, type=int,
                   help='random seed')
 
-parser.add_argument('--dlg', dest='dlg', action='store_true',
-                    help='dlg')
 # def criterion(y_pred, y_cls):
 #     return ((y_pred - y_cls)**2).sum(dim=-1).mean() / 2.
 
@@ -105,7 +101,6 @@ def main():
 
     cudnn.benchmark = True
 
-    
 
     batch_size = args.batch_size
 
@@ -124,15 +119,9 @@ def main():
     s = Server(base_model)
     clients = []
     for i in range(args.clients):
-        if args.dlg :
-            # 如果是dlg，那么每个client只有一张图片
-            c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
-            c_train_loader = torch.utils.data.DataLoader(c_train_dataset, batch_size=batch_size)
-            clients.append(Client(c_train_loader))
-        else:
-            c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
-            c_train_loader = torch.utils.data.DataLoader(c_train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-            clients.append(Client(c_train_loader))
+        c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+        c_train_loader = torch.utils.data.DataLoader(c_train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+        clients.append(Client(c_train_loader))
 
     # optimizer = torch.optim.SGD(s.current_model.parameters(), args.lr)
     optimizer = torch.optim.Adam(s.current_model.parameters(), args.lr,
@@ -233,9 +222,8 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
     server.current_model.train()
     
     end = time.time()
-
+    
     train_loader = clients[0].loader
-    # print("!!!",len(train_loader))
     # print ('!!!!', len(clients[1].loader))
     # for i, (input, target) in enumerate(train_loader):
     if args.celoss:
@@ -265,49 +253,22 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
             input, target = next(citers[ic])
             # input, target = input.cuda(), target.view(-1, 1).cuda()
             input = input.to(0, dtype=torch.float)
-            # print("input=",input)
-            # print("target=",target)
             if args.celoss:
                 target = target.to(0)
             else:
                 target = target.to(0, dtype=torch.float)
 
-            # if args.encrypt:
-            #     c.receive_model(server.distribute())
-            #     loss = criterion(c.model(input), target)
-            #     c.local_computation(target, args.differential)
-            #     loss.backward()
-            #     server.aggregate(c.model)
-            # else:
-            #     c.receive_model(server.distribute())
-            #     loss = criterion(c.model(input), target)
-            #     loss.backward()
-            #     server.aggregate(c.model)
-            
-            # print("!!",epoch,args.epochs)
             if args.encrypt:
                 c.receive_model(server.distribute())
                 loss = criterion(c.model(input), target)
                 c.local_computation(target, args.differential)
-                if args.dlg and epoch == args.epochs-1:
-                    print('本地训练结束,尝试dlg攻击')
-                    # 计算客户端模型梯度
-                    original_dy_dx = torch.autograd.grad(loss, c.model.parameters(), create_graph=True)
-                    deep_leakage_from_gradients(server.current_model,input,target,original_dy_dx,criterion,ic)
-                else:
-                    loss.backward()
-                    server.aggregate(c.model)
+                loss.backward()
+                server.aggregate(c.model)
             else:
                 c.receive_model(server.distribute())
                 loss = criterion(c.model(input), target)
-                if args.dlg and epoch == args.epochs-1:
-                    print('本地训练结束,尝试dlg攻击')
-                    # 计算客户端模型梯度
-                    original_dy_dx = torch.autograd.grad(loss, c.model.parameters(), create_graph=True)
-                    deep_leakage_from_gradients(server.current_model,input,target,original_dy_dx,criterion)
-                else:
-                    loss.backward()
-                    server.aggregate(c.model)
+                loss.backward()
+                server.aggregate(c.model)
 
         if args.clip > 0.:
             torch.nn.utils.clip_grad_norm_(server.current_model.parameters(), args.clip)
