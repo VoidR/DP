@@ -2,3 +2,5 @@ dataset/
 checkpoints/
 HAM10000/
 __pycache__/
+figs/
+main.py

@@ -4,10 +4,11 @@ import resnet_v2 as resnet
 # import resnet
 # from fl_objs import Server, Client
 import numpy as np
-from dataset import RetinopathyDatasetTrain
+from dataset import RetinopathyDatasetTrain,CIFAR100DatasetTrain
 from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize
 from albumentations.pytorch import ToTensor
 from torch.utils.data import Dataset
+import torchvision.datasets as datasets
 import argparse
 import torch.backends.cudnn as cudnn
 import time 
@@ -72,6 +73,7 @@ parser.add_argument('--dlg', dest='dlg', action='store_true',
 
 def criterion(y_pred, y_cls):
     c = torch.nn.CrossEntropyLoss()
+    # print("!!!",y_pred.shape,y_cls.shape)
     return c(y_pred, torch.argmax(y_cls, dim = -1))
 
 
@@ -109,12 +111,20 @@ def main():
 
     batch_size = args.batch_size
 
-    train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, test=args.celoss)
+    # HAM10000数据集
+    # train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, test=args.celoss)
+    # train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+
+    # val_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/test_meta.npy', transform=transform_test, test=True)
+    # val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+
+    # CIFAR100
+    dataset = datasets.CIFAR100("~/.torch")
+    train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train,test=args.celoss)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    val_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/test_meta.npy', transform=transform_test, test=True)
+    val_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_test,test=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-
 
     if args.encrypt:
         from fl_objs import Server, Client
@@ -125,7 +135,9 @@ def main():
     clients = []
     for i in range(args.clients):
         if args.dlg :
-            c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+            # c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+            c_train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train, split=(i, args.clients),test=args.celoss)
+            # print(c_train_dataset.transform)
         else:
             c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
         c_train_loader = torch.utils.data.DataLoader(c_train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
@@ -283,7 +295,7 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
                 print('本地训练结束，尝试进行深度泄露梯度攻击')
                 # 获取客户端原始梯度
                 original_dy_dx = server.get_client_grad(c.model)
-                deep_leakage_from_gradients(server.current_model, input.size(), target.size(), original_dy_dx, criterion)
+                deep_leakage_from_gradients(server.current_model, input, target.size(), original_dy_dx, criterion,ic,args.save_dir)
 
         if args.clip > 0.:
             torch.nn.utils.clip_grad_norm_(server.current_model.parameters(), args.clip)

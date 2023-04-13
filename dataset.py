@@ -5,6 +5,8 @@ from tqdm import tqdm
 from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate
 from albumentations.pytorch import ToTensor
 from torch.utils.data import Dataset
+
+
 import pandas as pd
 import os
 
@@ -63,6 +65,12 @@ def circle_crop(img):
 
     return img
 
+def label_to_onehot(target, num_classes=100):
+    target = np.expand_dims(target, 1)
+    onehot_target = np.zeros((target.shape[0], num_classes), dtype=np.float32)
+    np.put_along_axis(onehot_target, indices=target, values=1, axis=1)
+    return np.squeeze(onehot_target)
+
 # if __name__ == '__main__':
 #     data = pd.read_csv('../dataset/blindness/train.csv')
 
@@ -101,13 +109,40 @@ class RetinopathyDatasetTrain(Dataset):
         # print (im)
         # exit()
         if self.test:
-            # label = torch.tensor(np.argmax(self.data.loc[self.start + idx].values[1:]))
             label = torch.tensor(np.argmax(target))
         else:
-            # label = torch.tensor(np.array(self.data.loc[self.start + idx].values[1:]).astype(np.float))
             label = torch.tensor(target)
         if self.transform:
             augmented = self.transform(image=im)
             im = augmented['image']
         return im, label
 
+class CIFAR100DatasetTrain(Dataset):
+    def __init__(self, dataset, transform=None, split=(-1,-1), test=False):
+        self.data = dataset
+        self.transform = transform
+        self.split = 0 if split[0] < 0 else split[0]
+        self.total = 1 if split[1] < 0 else split[1]
+        self.start = int(len(self.data) // self.total) * self.split
+
+        self.test = test
+    
+    def __len__(self):
+        return int(len(self.data) // self.total) 
+    
+    def __getitem__(self, idx):
+        im, target = self.data.data[idx],self.data.targets[idx]
+        # im = cv2.imread(img_name)
+        # print (im)
+        # exit()
+        if self.test:
+            label = torch.tensor(np.argmax(label))
+        else:
+            label = torch.tensor(target).long()
+            label = label.view(1, )
+            label = label_to_onehot(label)
+
+        if self.transform:
+            augmented = self.transform(image=im)
+            im = augmented['image']
+        return im, label
