@@ -62,18 +62,16 @@ parser.add_argument('--df', dest='differential', action='store_true',
                     help='with differential privacy')
 parser.add_argument('--clip', default=-1, type=float,
                   help='gradient clip')
-parser.add_argument('--seed', default=0, type=int,
-                  help='random seed')
+parser.add_argument('--seed', default=0, type=int,help='random seed')
 
-parser.add_argument('--dlg', dest='dlg', action='store_true',
-                    help='dlg')
+parser.add_argument('--dlg', dest='dlg', action='store_true',help='dlg')
+parser.add_argument('--dataset', dest='dataset', action='store_true',help='used dataset',default='cifar100',type=str)
 
 # def criterion(y_pred, y_cls):
 #     return ((y_pred - y_cls)**2).sum(dim=-1).mean() / 2.
 
 def criterion(y_pred, y_cls):
     c = torch.nn.CrossEntropyLoss()
-    # print("!!!",y_pred.shape,y_cls.shape)
     return c(y_pred, torch.argmax(y_cls, dim = -1))
 
 
@@ -112,19 +110,21 @@ def main():
     batch_size = args.batch_size
 
     # HAM10000数据集
-    # train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, test=args.celoss)
-    # train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    if args.dataset == 'ham10000':
+        train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, test=args.celoss)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    # val_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/test_meta.npy', transform=transform_test, test=True)
-    # val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+        val_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/test_meta.npy', transform=transform_test, test=True)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
     # CIFAR100
-    dataset = datasets.CIFAR100("~/.torch")
-    train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train,test=args.celoss)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    if args.dataset == 'cifar100':
+        dataset = datasets.CIFAR100("~/.torch")
+        train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train,test=args.celoss)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    val_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_test,test=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+        val_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_test,test=True)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
     if args.encrypt:
         from fl_objs import Server, Client
@@ -135,11 +135,13 @@ def main():
     clients = []
     for i in range(args.clients):
         if args.dlg :
-            # c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
-            c_train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train, split=(i, args.clients),test=args.celoss)
-            # print(c_train_dataset.transform)
+            if args.dataset == 'ham10000':
+                c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+            if args.dataset == 'cifar100':
+                c_train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train, split=(i, args.clients),test=args.celoss)
         else:
-            c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+            if args.dataset == 'ham10000':
+                c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
         c_train_loader = torch.utils.data.DataLoader(c_train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
         clients.append(Client(c_train_loader))
 

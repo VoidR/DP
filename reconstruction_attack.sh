@@ -7,4 +7,4 @@ python fl_train.py --enc --dlg -b 1 --epochs 1 -k 5 --arch resnet56 --seed 1234 
 
 # 客户端添加差分隐私
 echo "客户端添加差分隐私"
-python fl_train.py --enc --df --dlg -b 1 --epochs 1 -k 5 --arch resnet56 --seed 1234 --save-dir checkpoints/df_dlg_enc_res56_5 | tee checkpoints/df_dlg_enc_res56_5/log.txt
+python fl_train.py --enc --df --dlg -b 1 --epochs 1 -k 5 --arch resnet56 --dataset cifar100 --seed 1234 --save-dir checkpoints/df_dlg_enc_res56_5 | tee checkpoints/df_dlg_enc_res56_5/log.txt
