@@ -66,11 +66,11 @@ def circle_crop(img):
 
     return img
 
-def label_to_onehot(target, num_classes=100):
-    target = np.expand_dims(target, 1)
-    onehot_target = np.zeros((target.shape[0], num_classes), dtype=np.float32)
-    np.put_along_axis(onehot_target, indices=target, values=1, axis=1)
-    return np.squeeze(onehot_target)
+def label_to_onehot(target, num_classes=10):
+    target = torch.unsqueeze(target, 1)
+    onehot_target = torch.zeros(target.size(0), num_classes, device=target.device)
+    onehot_target.scatter_(1, target, 1)
+    return onehot_target
 
 # if __name__ == '__main__':
 #     data = pd.read_csv('../dataset/blindness/train.csv')
@@ -100,8 +100,6 @@ class RetinopathyDatasetTrain(Dataset):
         # return int(len(self.data['label']) // self.total) - 1
         return int(len(self.data['label']) // self.total) 
 
-
-
     def __getitem__(self, idx):
         # img_name = os.path.join('../dataset/ISIC_2018//ISIC2018_Task3_Training_Input/', self.data.loc[self.start + idx, 'image'] + '.jpg') # typo
         # img_name = self.data.loc[self.start + idx, 'image']
@@ -118,7 +116,7 @@ class RetinopathyDatasetTrain(Dataset):
             im = augmented['image']
         return im, label
 
-class CIFAR100DatasetTrain(Dataset):
+class CIFAR10DatasetTrain(Dataset):
     def __init__(self, dataset, transform=None, split=(-1,-1), test=False,idx=25):
         self.data = dataset
         self.transform = transform
@@ -135,9 +133,6 @@ class CIFAR100DatasetTrain(Dataset):
     
     def __getitem__(self, idx):
         im, target = self.data.data[self.idx],self.data.targets[self.idx]
-        # im = cv2.imread(img_name)
-        # print (im)
-        # exit()
         if self.test:
             label = torch.tensor(np.argmax(target))
         else:
@@ -146,17 +141,6 @@ class CIFAR100DatasetTrain(Dataset):
             label = label_to_onehot(label)
 
         if self.transform:
-            # tt = transforms.ToPILImage()
-            # tt(im).save('./data.png')
-            # print('shape1:',im.shape)
             augmented = self.transform(image=im)
-            # print('augmented',augmented)
             im = augmented['image']
-            # tp = transforms.ToTensor()
-            # im = tp(im)
-            # augmented = self.transform(image=im)
-            # im = augmented['image']
-            # print('shape2:',im.shape)
-
-            # tt(im).save('./data_.png')
         return im, label
