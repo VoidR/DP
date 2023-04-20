@@ -178,68 +178,133 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
         loss.backward()
 
 
-def deep_leakage_from_gradients(model, origin_data,lable_size,origin_grad,criterion,ic,save_dir): 
-    tt = transforms.ToPILImage()
+# def deep_leakage_from_gradients(model, origin_data,lable_size,origin_grad,criterion,ic,save_dir): 
 
-    plt.imshow(tt(origin_data[0].cpu()))
-    filename = os.path.join(save_dir,'figs/data.png')
-    plt.savefig(filename, dpi=300)
+#     tt = transforms.ToPILImage()
+
+#     # print('origin_data',origin_data)
+#     # print('origin_data shape',origin_data.shape)
+
+#     # plt.imshow(tt(origin_data[0].cpu()))
+#     # filename = os.path.join(save_dir,'figs/data_'+str(ic)+'.png')
+#     # tt(origin_data[0]).save(filename)
+#     # plt.imsave(filename, tt(origin_data[0].cpu()))
+#     # plt.savefig(filename, dpi=300)
     
+#     dummy_data = torch.randn(origin_data.size()).cuda().requires_grad_(True)
+#     dummy_label =  torch.randn(lable_size).cuda().requires_grad_(True)
+
+#     # optimizer = torch.optim.LBFGS([dummy_data, dummy_label] ,lr=0.1)
+#     optimizer = torch.optim.Adam([dummy_data, dummy_label],lr=0.1)
+#     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[50, 300,500], gamma=0.1)
+
+
+#     iters_num = 6*100
+#     step = 20
+#     list_data_diff = []
+#     history = []
+#     for iters in range(iters_num):
+#         def closure():
+#             optimizer.zero_grad()
+#             dummy_pred = model(dummy_data) 
+#             dummy_loss = criterion(dummy_pred, F.softmax(dummy_label, dim=-1)) 
+#             dummy_grad = torch.autograd.grad(dummy_loss, model.parameters(), create_graph=True)
+
+#             grad_diff = 0
+#             # 欧式距离
+#             for gx, gy in zip(dummy_grad, origin_grad): 
+#                 grad_diff += ((gx - gy) ** 2).sum()
+                
+#             # 余弦相似度
+#             # for gx, gy in zip(dummy_grad, origin_grad):
+#             #     grad_diff += (1-(gx * gy).sum() / (gx.norm() * gy.norm()))
+
+#             grad_diff.backward()
+            
+#             # 数据间的距离
+#             data_diff = 0
+#             for gx, gy in zip(dummy_data, origin_data): 
+#                 data_diff += ((gx - gy) ** 2).sum()
+#             list_data_diff.append(data_diff)
+
+#             return grad_diff
+
+#         optimizer.step(closure)
+#         lr_scheduler.step()
+#         if iters % step == 0: 
+#             current_loss = closure()
+#             print(iters, "current_loss:%.4f" % current_loss.item(),"data_diff:%.4f" % list_data_diff[int(step/10)],'current lr {:.2e}'.format(optimizer.param_groups[0]['lr']))
+#             history.append(tt(dummy_data[0].cpu()))
+
+#     plt.figure(figsize=(12, 8))
+#     for i in range(int(iters_num/step)):
+#         plt.subplot(int(iters_num/step/10), 10, i + 1)
+#         plt.imshow(history[i])
+#         plt.title("iter=%d" % (i * step))
+#         plt.axis('off')
+
+#     filename = os.path.join(save_dir,'figs/dlg_'+str(ic)+'.png')
+#     plt.savefig(filename, dpi=300)
+#     # plt.show()
+
+def deep_leakage_from_gradients(model, origin_data, lable_size, origin_grad, criterion, ic, save_dir,iters_num,optim='LBFGS',dist='norm'): 
+    
+    tt = transforms.ToPILImage()
     dummy_data = torch.randn(origin_data.size()).cuda().requires_grad_(True)
-    dummy_label =  torch.randn(lable_size).cuda().requires_grad_(True)
-    optimizer = torch.optim.LBFGS([dummy_data, dummy_label] ,lr=0.1)
-    # optimizer = torch.optim.Adam([dummy_data, dummy_label],lr=0.1)
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[20, 250], gamma=0.1)
+    dummy_label = torch.randn(lable_size).cuda().requires_grad_(True)
 
+    if optim == 'LBFGS':
+        optimizer = torch.optim.LBFGS([dummy_data, dummy_label], lr=0.1)
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[50,300], gamma=0.1)
 
-    iters_num = 3*100
-    step = 10
-    list_data_diff = []
+    elif optim == 'Adam':
+        optimizer = torch.optim.Adam([dummy_data, dummy_label], lr=0.1)
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[200,300,500], gamma=0.1)
+
+    iters_num = iters_num
+    save_step = iters_num//30
     history = []
-    for iters in range(iters_num):
+    for i in range(iters_num):
         def closure():
             optimizer.zero_grad()
             dummy_pred = model(dummy_data) 
-            dummy_loss = criterion(dummy_pred, F.softmax(dummy_label, dim=-1)) 
+            dummy_loss = criterion(dummy_pred, F.softmax(dummy_label, dim=-1))
             dummy_grad = torch.autograd.grad(dummy_loss, model.parameters(), create_graph=True)
             
             grad_diff = 0
-            # 欧式距离
-            # for gx, gy in zip(dummy_grad, origin_grad): 
-            #     grad_diff += ((gx - gy) ** 2).sum()
-                
-            # 余弦相似度
-            for gx, gy in zip(dummy_grad, origin_grad):
-                grad_diff += (1-(gx * gy).sum() / (gx.norm() * gy.norm()))
+            if dist == 'norm':
+                # L2范数
+                for gx, gy in zip(dummy_grad, origin_grad): 
+                    grad_diff += ((gx - gy) ** 2).sum()
+            elif dist == 'cosine':
+                # 余弦相似度
+                 for gx, gy in zip(dummy_grad, origin_grad):
+                    grad_diff += (1-(gx * gy).sum() / (gx.norm() * gy.norm()))
 
-            grad_diff.backward(retain_graph=True)
-
-            # 数据间的距离
-            data_diff = 0
-            for gx, gy in zip(dummy_data, origin_data): 
-                data_diff += ((gx - gy) ** 2).sum()
-
-            list_data_diff.append(data_diff)
-
+            grad_diff.backward()
             return grad_diff
 
         optimizer.step(closure)
         lr_scheduler.step()
-        if iters % step == 0: 
-            current_loss = closure()
-            print(iters, "current_loss:%.4f" % current_loss.item(),"data_diff:%.4f" % list_data_diff[int(step/10)],'current lr {:.2e}'.format(optimizer.param_groups[0]['lr']))
-            history.append(tt(dummy_data[0].cpu()))
 
+        if i % save_step == 0: 
+            current_loss = closure()
+            print(i, "current_loss:%.8f" % current_loss.item(),'current lr {:.2e}'.format(optimizer.param_groups[0]['lr']))
+            
+            history.append(tt(dummy_data[0].cpu()))
+            
+        dummy_data.grad.zero_()
+        dummy_label.grad.zero_()
+        
     plt.figure(figsize=(12, 8))
-    for i in range(int(iters_num/step)):
-        plt.subplot(int(iters_num/step/10), 10, i + 1)
+    for i in range(30):
+        plt.subplot(3, 10, i + 1)
         plt.imshow(history[i])
-        plt.title("iter=%d" % (i * step))
+        plt.title("iter=%d" % (i * save_step))
         plt.axis('off')
 
     filename = os.path.join(save_dir,'figs/dlg_'+str(ic)+'.png')
-    plt.savefig(filename, dpi=300)
-    plt.show()
+    plt.savefig(filename, dpi=300)  
 
 if __name__ == '__main__':
     main()

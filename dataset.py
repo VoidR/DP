@@ -5,6 +5,7 @@ from tqdm import tqdm
 from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate
 from albumentations.pytorch import ToTensor
 from torch.utils.data import Dataset
+from torchvision import transforms
 
 
 import pandas as pd
@@ -118,31 +119,44 @@ class RetinopathyDatasetTrain(Dataset):
         return im, label
 
 class CIFAR100DatasetTrain(Dataset):
-    def __init__(self, dataset, transform=None, split=(-1,-1), test=False):
+    def __init__(self, dataset, transform=None, split=(-1,-1), test=False,idx=25):
         self.data = dataset
         self.transform = transform
         self.split = 0 if split[0] < 0 else split[0]
         self.total = 1 if split[1] < 0 else split[1]
         self.start = int(len(self.data) // self.total) * self.split
+        self.idx = idx
 
         self.test = test
     
     def __len__(self):
-        return int(len(self.data) // self.total) 
+        # return int(len(self.data) // self.total) 
+        return 1
     
     def __getitem__(self, idx):
-        im, target = self.data.data[idx],self.data.targets[idx]
+        im, target = self.data.data[self.idx],self.data.targets[self.idx]
         # im = cv2.imread(img_name)
         # print (im)
         # exit()
         if self.test:
-            label = torch.tensor(np.argmax(label))
+            label = torch.tensor(np.argmax(target))
         else:
             label = torch.tensor(target).long()
             label = label.view(1, )
             label = label_to_onehot(label)
 
         if self.transform:
+            # tt = transforms.ToPILImage()
+            # tt(im).save('./data.png')
+            # print('shape1:',im.shape)
             augmented = self.transform(image=im)
+            # print('augmented',augmented)
             im = augmented['image']
+            # tp = transforms.ToTensor()
+            # im = tp(im)
+            # augmented = self.transform(image=im)
+            # im = augmented['image']
+            # print('shape2:',im.shape)
+
+            # tt(im).save('./data_.png')
         return im, label
