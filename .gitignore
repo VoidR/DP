@@ -5,3 +5,5 @@ __pycache__/
 figs/
 main.py
 test.sh
+centroids.pt
+path/

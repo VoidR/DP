@@ -4,21 +4,18 @@ import resnet_v2 as resnet
 # import resnet
 # from fl_objs import Server, Client
 import numpy as np
-from dataset import RetinopathyDatasetTrain,CIFAR100DatasetTrain
+from dataset import CIFAR10DatasetTrain
 from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize
 from albumentations.pytorch import ToTensor
 from torch.utils.data import Dataset
-import torchvision.datasets as datasets
 import argparse
 import torch.backends.cudnn as cudnn
 import time 
+import torch.nn.functional as F
 import os
 from torch import nn
-import torch.nn.functional as F
-from torchvision import transforms
+import torchvision.datasets as datasets
 
-
-from attack_dlg import deep_leakage_from_gradients
 
 model_names = ['resnet20', 'resnet32', 'resnet56', 'resnet110', 'resnet1202']
 
@@ -65,14 +62,8 @@ parser.add_argument('--df', dest='differential', action='store_true',
                     help='with differential privacy')
 parser.add_argument('--clip', default=-1, type=float,
                   help='gradient clip')
-parser.add_argument('--seed', default=0, type=int,help='random seed')
-
-parser.add_argument('--dlg', dest='dlg', action='store_true',help='dlg')
-parser.add_argument('--dataset', dest='dataset',help='used dataset',default='cifar10',type=str)
-parser.add_argument('--opt', dest='optim',help='optimizer in dlg',default='LBFGS',type=str)
-parser.add_argument('--dist',help='dist in dlg',default='norm',type=str)
-parser.add_argument('--iters', default=300, type=int, metavar='N',help='number of iters of dlg')
-
+parser.add_argument('--seed', default=0, type=int,
+                  help='random seed')
 
 # def criterion(y_pred, y_cls):
 #     return ((y_pred - y_cls)**2).sum(dim=-1).mean() / 2.
@@ -82,6 +73,8 @@ parser.add_argument('--iters', default=300, type=int, metavar='N',help='number o
 #     return c(y_pred, torch.argmax(y_cls, dim = -1))
 
 def criterion(pred, target):
+    # print('pred shape',pred.shape)
+    # print('target shape',target.shape)
     return torch.mean(torch.sum(- target * F.log_softmax(pred, dim=-1), 1))
 
 
@@ -108,7 +101,7 @@ def main():
         RandomBrightnessContrast(p=1.0),
         ToTensor()
     ])
-    # transform_train = transforms.ToTensor()
+
     transform_test = Compose([
         Resize(64, 64),
         ToTensor()
@@ -116,25 +109,18 @@ def main():
 
     cudnn.benchmark = True
 
+    
 
     batch_size = args.batch_size
 
-    # HAM10000数据集
-    if args.dataset == 'ham10000':
-        train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, test=args.celoss)
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    train_data = datasets.CIFAR10(root='~/.torch', train=True, download=True,transform=transform_train)
+    train_dataset = CIFAR10DatasetTrain(dataset=train_data,transform=transform_train,test=args.celoss)
 
-        val_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/test_meta.npy', transform=transform_test, test=True)
-        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    # CIFAR10
-    if args.dataset == 'cifar10':
-        dataset = datasets.CIFAR10("~/.torch")
-        train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train,test=args.celoss)
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    val_dataset = CIFAR10DatasetTrain(dataset=train_data,transform=transform_test,test=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
-        val_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_test,test=True)
-        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
     if args.encrypt:
         from fl_objs import Server, Client
@@ -144,14 +130,7 @@ def main():
     s = Server(base_model)
     clients = []
     for i in range(args.clients):
-        if args.dlg :
-            if args.dataset == 'ham10000':
-                c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta_1.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
-            if args.dataset == 'cifar10':
-                c_train_dataset = CIFAR100DatasetTrain(dataset=dataset,transform=transform_train, split=(i, args.clients),test=args.celoss,idx=30)
-        else:
-            if args.dataset == 'ham10000':
-                c_train_dataset = RetinopathyDatasetTrain(csv_file='./HAM10000/train_meta.npy', transform=transform_train, split=(i, args.clients), test=args.celoss)
+        c_train_dataset = CIFAR10DatasetTrain(dataset=train_data, transform=transform_train, split=(i, args.clients), test=args.celoss)
         c_train_loader = torch.utils.data.DataLoader(c_train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
         clients.append(Client(c_train_loader))
 
@@ -285,7 +264,6 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
             input, target = next(citers[ic])
             # input, target = input.cuda(), target.view(-1, 1).cuda()
             input = input.to(0, dtype=torch.float)
-
             if args.celoss:
                 target = target.to(0)
             else:
@@ -302,20 +280,6 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
                 loss = criterion(c.model(input), target)
                 loss.backward()
                 server.aggregate(c.model)
-            
-            if args.dlg and epoch == args.epochs-1:
-                # 若开启深度泄露梯度攻击，并且当前为最后一个epoch，则执行攻击
-                print('本地训练结束，尝试进行深度泄露梯度攻击')
-                # 获取客户端原始梯度
-                tt = transforms.ToPILImage()
-
-                original_dy_dx = server.get_client_grad(c.model)
-                filename = os.path.join(args.save_dir,'figs/origin_data.png')
-                tt(input[0]).save(filename)
-                optim_dlg = args.optim
-                iters_dlg = args.iters
-                dist_dlg = args.dist
-                deep_leakage_from_gradients(server.current_model, input, target.size(), original_dy_dx, criterion,ic,args.save_dir,iters_dlg,optim_dlg,dist_dlg)
 
         if args.clip > 0.:
             torch.nn.utils.clip_grad_norm_(server.current_model.parameters(), args.clip)

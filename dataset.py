@@ -116,7 +116,7 @@ class RetinopathyDatasetTrain(Dataset):
             im = augmented['image']
         return im, label
 
-class CIFAR10DatasetTrain(Dataset):
+class CIFAR10DatasetDLG(Dataset):
     def __init__(self, dataset, transform=None, split=(-1,-1), test=False,idx=25):
         self.data = dataset
         self.transform = transform
@@ -133,6 +133,36 @@ class CIFAR10DatasetTrain(Dataset):
     
     def __getitem__(self, idx):
         im, target = self.data.data[self.idx],self.data.targets[self.idx]
+        if self.test:
+            label = torch.tensor(np.argmax(target))
+        else:
+            label = torch.tensor(target).long()
+            label = label.view(1, )
+            label = label_to_onehot(label)
+
+        if self.transform:
+            augmented = self.transform(image=im)
+            im = augmented['image']
+        return im, label
+    
+
+
+class CIFAR10DatasetTrain(Dataset):
+    def __init__(self, dataset, transform=None, split=(-1,-1), test=False):
+        self.data = dataset
+        self.transform = transform
+        self.split = 0 if split[0] < 0 else split[0]
+        self.total = 1 if split[1] < 0 else split[1]
+        self.start = int(len(self.data) // self.total) * self.split
+
+        self.test = test
+    
+    def __len__(self):
+        # return int(len(self.data) // self.total) 
+        return int(len(self.data) // self.total) 
+    
+    def __getitem__(self, idx):
+        im, target = self.data.data[self.start + idx],self.data.targets[self.start + idx]
         if self.test:
             label = torch.tensor(np.argmax(target))
         else:

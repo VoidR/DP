@@ -379,7 +379,7 @@ class BasicBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=100):
+    def __init__(self, block, num_blocks, num_classes=10):
         super(ResNet, self).__init__()
         self.cls_num = num_classes
         self.in_planes = 16
@@ -521,6 +521,10 @@ class ResNet(nn.Module):
         logits = self.logits.view(batch_size, -1)
         y_last = self.y_last.view(batch_size, -1)
         
+        # print("logits shape",logits.shape)
+        # print("y_last shape",y_last.shape)
+        # print("grad_L2ylast shape",grad_L2ylast.shape)
+
         opt.zero_grad()
         # print ('Let see : ', grad_L2ylast.norm())
         logits.backward(grad_L2ylast, retain_graph=True)
@@ -650,7 +654,7 @@ class ResNet(nn.Module):
         # print ('i1s_yhat : ', i1s_yhat)
         grad_L2ylast = i1s_yhat - y_gt
         # print ('right ? ', i1c_mu.norm(), alpha.norm(), self.rcls.norm(),torch.einsum('k,c->kc', alpha, self.rcls).norm(), grad_L2ylast.norm())
-        self.post_temp(grad_L2ylast)
+        self.post_temp(grad_L2ylast[0])
 
         if diff:
             # print ('diff of what')

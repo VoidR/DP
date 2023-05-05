@@ -38,9 +38,6 @@ target=metadata['cell_type_idx']
 # 将数据集划分为训练集和测试集
 train_features, test_features, train_targets, test_targets = train_test_split(features, target, test_size=0.005, random_state=6324)
 
-# 仅保存一张图像作为训练数据
-train_features_1 = train_features.iloc[[0,0,0,0,0]]
-train_targets_1 = train_targets.iloc[[0,0,0,0,0]]
 
 # 获取测试图像的路径
 test_image_paths = test_features['path']
@@ -54,7 +51,7 @@ def one_hot_encode(labels):
     return one_hot
 
 # 对训练集和测试集进行独热编码
-train_targets_1, train_targets, test_targets = one_hot_encode(np.array(train_targets_1)), one_hot_encode(np.array(train_targets)), one_hot_encode(np.array(test_targets))
+train_targets, test_targets = one_hot_encode(np.array(train_targets)), one_hot_encode(np.array(test_targets))
 
 # 将数据转换为字典格式
 train_data = {
@@ -66,13 +63,5 @@ test_data = {
     'label': np.array(test_targets)
 }
 
-# 仅保存包含一张图像的训练数据
-train_data_1 = {
-    'img_path': np.array(train_features_1['path']),
-    'label': np.array(train_targets_1)
-}
-
-# 将元数据保存到npy文件中
-np.save(os.path.join(base_dir, 'train_meta_1.npy'), train_data_1)
 np.save(os.path.join(base_dir, 'train_meta.npy'), train_data)
 np.save(os.path.join(base_dir, 'test_meta.npy'), test_data)
