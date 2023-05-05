@@ -209,7 +209,7 @@ def deep_leakage_from_gradients(model, data_size, lable, origin_grad, criterion,
 
     # 保存最小 loss 对应的图像
     timestamp = int(time.time())
-    min_loss_filename = os.path.join("path/to/attacked_images", str(torch.agrmax(lable).item())+"/min_loss_{}.png".format(timestamp))
+    min_loss_filename = os.path.join("path/to/attacked_images", str(torch.argmax(lable).item())+"/min_loss_{}.png".format(timestamp))
     min_loss_img.save(min_loss_filename)
 
     print('feat_dist:',calculate_recon_error(history[-1],dummy_label.argmax().item()))
