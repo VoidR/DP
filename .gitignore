@@ -4,6 +4,8 @@ HAM10000/
 __pycache__/
 figs/
 main.py
-test.sh
 centroids.pt
 path/
+.gitignore
+*.sh
+

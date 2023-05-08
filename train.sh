@@ -1,4 +1,7 @@
 
-dir_df=path/to
-mkdir -p ${dir_df};
-python fl_train.py --enc -k 5 --arch resnet20 --seed 0 --save-dir ${dir_df} | tee ${dir_df}/log.txt
+dir=path/to56
+
+python fl_train.py -k 5 --epochs 10 --arch resnet56 --seed 1234 --save-dir ${dir} | tee ${dir}/log.txt
+
+
+CUDA_VISIBLE_DEVICES=3 python fl_train.py -k 5 --epochs 10 --arch resnet56 --seed 1234 --save-dir path/to56 | tee path/to56/log.txt

@@ -6,13 +6,13 @@ function runcode(){
     dir=checkpoints/${time}/${1}_${2}
 
     mkdir -p ${dir}/figs
-    python test.py  --arch ${1}  --index ${2} --save-dir ${dir} | tee ${dir}/log.txt
+    CUDA_VISIBLE_DEVICES=1 python test.py  --arch ${1}  --index ${2} --save-dir ${dir} | tee ${dir}/log.txt
 }
 
 nets=(resnet20 resnet32 resnet56)
 
 
-for idx in {1..1000};do 
+for idx in {30..100};do 
     # echo $idx
     runcode resnet20 $idx
 done

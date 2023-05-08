@@ -6,6 +6,8 @@ from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate
 from albumentations.pytorch import ToTensor
 from torch.utils.data import Dataset
 from torchvision import transforms
+from torchvision.datasets import ImageFolder
+
 
 
 import pandas as pd
@@ -143,6 +145,8 @@ class CIFAR10DatasetDLG(Dataset):
         if self.transform:
             augmented = self.transform(image=im)
             im = augmented['image']
+        
+        print('target: ',target,'index: ',self.idx)
         return im, label
     
 
@@ -164,7 +168,8 @@ class CIFAR10DatasetTrain(Dataset):
     def __getitem__(self, idx):
         im, target = self.data.data[self.start + idx],self.data.targets[self.start + idx]
         if self.test:
-            label = torch.tensor(np.argmax(target))
+            # label = torch.tensor(np.argmax(target))
+            label = torch.tensor(target)
         else:
             label = torch.tensor(target).long()
             label = label.view(1, )
@@ -174,3 +179,15 @@ class CIFAR10DatasetTrain(Dataset):
             augmented = self.transform(image=im)
             im = augmented['image']
         return im, label
+
+
+class CIFAR10Test(ImageFolder):
+    def __getitem__(self, index):
+        path, label = self.samples[index]
+        image = cv2.imread(path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        if self.transform is not None:
+            transformed = self.transform(image=image)
+            image = transformed["image"]
+
+        return image, label

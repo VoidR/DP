@@ -24,7 +24,7 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet20',
                     choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names) +
                     ' (default: resnet32)')
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -68,14 +68,16 @@ parser.add_argument('--seed', default=0, type=int,
 # def criterion(y_pred, y_cls):
 #     return ((y_pred - y_cls)**2).sum(dim=-1).mean() / 2.
 
-# def criterion(y_pred, y_cls):
-#     c = torch.nn.CrossEntropyLoss()
-#     return c(y_pred, torch.argmax(y_cls, dim = -1))
+def criterion(y_pred, y_cls):
+    c = torch.nn.CrossEntropyLoss()
+    y_cls = torch.squeeze(y_cls, dim=1)
+    # print('y_pred:',y_pred.shape,'y_cls:',y_cls.shape,'argmax:',torch.argmax(y_cls, dim = -1).shape)
+    # return c(y_pred, torch.argmax(y_cls, dim = -1))
+    return c(y_pred, y_cls)
 
-def criterion(pred, target):
-    # print('pred shape',pred.shape)
-    # print('target shape',target.shape)
-    return torch.mean(torch.sum(- target * F.log_softmax(pred, dim=-1), 1))
+
+# def criterion(pred, target):
+#     return torch.mean(torch.sum(- target * F.log_softmax(pred, dim=-1), 1))
 
 
 def base_model():

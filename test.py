@@ -83,13 +83,6 @@ def main():
     batch_size = args.batch_size
 
     train_data = datasets.CIFAR10(root='~/.torch', train=True, download=True,transform=transform_train)
-    test_data = datasets.CIFAR10(root='~/.torch', train=False,transform=transform_test)
-
-    train_data_loader=DataLoader(train_data,batch_size=batch_size)
-    test_data_loader=DataLoader(test_data,batch_size=batch_size)
-
-    # print('train_data_loader', len(train_data_loader))
-
 
     s = Server(base_model)
     clients = []
@@ -100,7 +93,7 @@ def main():
         clients.append(Client(c_train_loader))
 
     optimizer = torch.optim.Adam(s.current_model.parameters(), args.lr,weight_decay=args.weight_decay)
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[60, 120, 160], gamma=0.1)
+    # lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[60, 120, 160], gamma=0.1)
 
     # for epoch in range(0,args.epochs):
     #     print('epoch', epoch,':current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
@@ -136,7 +129,7 @@ def main():
         # optim_dlg = args.optim
         # iters_dlg = args.iters
         # dist_dlg = args.dist
-        deep_leakage_from_gradients(s.current_model, input.size(), target, original_dy_dx, criterion,ic,args.save_dir,iters_num=500)
+        deep_leakage_from_gradients(s.current_model, input.size(), target, original_dy_dx, criterion,ic,args.save_dir,iters_num=900)
         
         s.aggregate(c.model)
 
@@ -149,17 +142,17 @@ def deep_leakage_from_gradients(model, data_size, lable, origin_grad, criterion,
 
     if optim == 'LBFGS':
         optimizer = torch.optim.LBFGS([dummy_data, dummy_label], lr=0.1)
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[iters_num-50], gamma=0.1)
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[600,900], gamma=0.1)
 
     elif optim == 'Adam':
         optimizer = torch.optim.Adam([dummy_data, dummy_label], lr=0.1)
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[200,230,270], gamma=0.1)
 
-    iters_num = iters_num
     save_step = iters_num//30
     history = []
     min_loss = float("inf")
     min_loss_img = None
+
     for i in range(iters_num):
         def closure():
             optimizer.zero_grad()
@@ -209,11 +202,13 @@ def deep_leakage_from_gradients(model, data_size, lable, origin_grad, criterion,
 
     # 保存最小 loss 对应的图像
     timestamp = int(time.time())
-    min_loss_filename = os.path.join("path/to/attacked_images", str(torch.argmax(lable).item())+"/min_loss_{}.png".format(timestamp))
+    if args.differential:
+        min_loss_filename = os.path.join("path/to/attacked_images/", str(torch.argmax(lable).item())+"/min_loss_{}.png".format(timestamp))
+    else:
+        min_loss_filename = os.path.join("path/to/df_attacked_images/", str(torch.argmax(lable).item())+"/min_loss_{}.png".format(timestamp))
     min_loss_img.save(min_loss_filename)
 
     print('feat_dist:',calculate_recon_error(history[-1],dummy_label.argmax().item()))
-
 
 
 if __name__ == '__main__':
