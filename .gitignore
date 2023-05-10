@@ -7,5 +7,8 @@ main.py
 centroids.pt
 path/
 .gitignore
-*.sh
-
+index2.sh
+index3.sh
+index4.sh
+test.sh
+train copy.sh

@@ -43,7 +43,7 @@ for images, target in val_loader:
     images = images.to('cuda', dtype=torch.float)
     # images = images.unsqueeze(0).to('cuda')  
     target = target.to('cuda')
-    print('target shape: ',target.shape)
+    # print('target shape: ',target.shape)
 
     # print('image:',images,'label:',labels)
     # 将攻击后的图像输入到模型中进行分类
