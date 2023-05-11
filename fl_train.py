@@ -30,7 +30,7 @@ parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=32, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-2, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
@@ -94,7 +94,7 @@ def main():
     torch.cuda.manual_seed(SEED)
     np.random.seed(SEED)
     transform_train = Compose([
-        Resize(64, 64),
+        Resize(32, 32),
         ShiftScaleRotate(
             shift_limit=0.1,
             scale_limit=0.1,
@@ -105,7 +105,7 @@ def main():
     ])
 
     transform_test = Compose([
-        Resize(64, 64),
+        Resize(32, 32),
         ToTensor()
     ])
 
@@ -117,10 +117,10 @@ def main():
 
     train_data = datasets.CIFAR10(root='~/.torch', train=True, download=True,transform=transform_train)
     train_dataset = CIFAR10DatasetTrain(dataset=train_data,transform=transform_train,test=args.celoss)
-
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    val_dataset = CIFAR10DatasetTrain(dataset=train_data,transform=transform_test,test=True)
+    val_data = datasets.CIFAR10(root='~/.torch', train=False, download=True,transform=transform_test)
+    val_dataset = CIFAR10DatasetTrain(dataset=val_data,transform=transform_test,test=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
 
