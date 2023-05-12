@@ -1,3 +1,4 @@
+.gitignore
 dataset/
 checkpoints/
 HAM10000/
@@ -12,3 +13,5 @@ index3.sh
 index4.sh
 test.sh
 train copy.sh
+*.sh
+fl_train_2.py

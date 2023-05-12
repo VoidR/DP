@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from albumentations.pytorch import ToTensor
 from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize
-from feat_dist import calculate_recon_error
+# from feat_dist import calculate_recon_error
 
 import resnet_v2 as resnet
 from dataset import CIFAR10DatasetDLG
@@ -21,7 +21,7 @@ from fl_objs import Server, Client
 model_names = ['resnet20', 'resnet32', 'resnet56', 'resnet110', 'resnet1202']
 
 parser = argparse.ArgumentParser(description='Propert ResNets for CIFAR10 in pytorch, and deep leakage from gradients')
-parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet20',choices=model_names,help='model architecture: ' + ' | '.join(model_names) +' (default: resnet32)')
+parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet20',choices=model_names,help='model architecture: ' + ' | '.join(model_names) +' (default: resnet20)')
 parser.add_argument('--epochs', default=1, type=int, metavar='N',help='number of total epochs to run')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,metavar='W', help='weight decay (default: 5e-4)')
 parser.add_argument('-k', '--clients', default=5, type=int,help='number of clients(default: 5)')
@@ -30,7 +30,7 @@ parser.add_argument('--seed', default=1234, type=int, help='seed for initializin
 parser.add_argument('-b', '--batch-size', default=1, type=int,metavar='N', help='mini-batch size (default: 1)')
 parser.add_argument('--df', dest='differential', action='store_true',help='with differential privacy')
 parser.add_argument('--save-dir', dest='save_dir',help='The directory used to save the trained models',default='save_temp', type=str)
-parser.add_argument('--index', type=int, default="25", help='the index for leaking images on CIFAR.')
+parser.add_argument('--index', type=int, default="369", help='the index for leaking images on CIFAR.')
 def get_device():
     # 查询GPU显存使用情况，选择空闲显存最大的GPU,如果不存在GPU，则使用CPU
     if torch.cuda.is_available():
@@ -63,7 +63,7 @@ def main():
     np.random.seed(SEED)
 
     transform_train = Compose([
-        Resize(64, 64),
+        Resize(32, 32),
         ShiftScaleRotate(
             shift_limit=0.1,
             scale_limit=0.1,
@@ -73,10 +73,10 @@ def main():
         ToTensor()
     ])
 
-    transform_test = Compose([
-        Resize(64, 64),
-        ToTensor()
-    ])
+    # transform_test = Compose([
+    #     Resize(32, 32),
+    #     ToTensor()
+    # ])
 
     cudnn.benchmark = True
 
@@ -92,7 +92,8 @@ def main():
         # print('c_train_loader', len(c_train_loader))
         clients.append(Client(c_train_loader))
 
-    optimizer = torch.optim.Adam(s.current_model.parameters(), args.lr,weight_decay=args.weight_decay)
+    # optimizer = torch.optim.Adam(s.current_model.parameters(), args.lr,weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(s.current_model.parameters(), args.lr)
     # lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[60, 120, 160], gamma=0.1)
 
     # for epoch in range(0,args.epochs):
@@ -117,7 +118,10 @@ def main():
 
         c.receive_model(s.distribute())
         loss = criterion(c.model(input), target)
+        # print("c.model(input)",c.model(input).shape,c.model(input))
+        target = torch.squeeze(target, dim=1)
         # print("target",target.shape)
+
         c.local_computation(target, args.differential)
         loss.backward()
 
@@ -141,7 +145,7 @@ def deep_leakage_from_gradients(model, data_size, lable, origin_grad, criterion,
     dummy_label = torch.randn(lable.size()).cuda().requires_grad_(True)
 
     if optim == 'LBFGS':
-        optimizer = torch.optim.LBFGS([dummy_data, dummy_label], lr=0.1)
+        optimizer = torch.optim.LBFGS([dummy_data, dummy_label], lr=0.01)
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[600,900], gamma=0.1)
 
     elif optim == 'Adam':
@@ -208,7 +212,7 @@ def deep_leakage_from_gradients(model, data_size, lable, origin_grad, criterion,
         min_loss_filename = os.path.join("path/to/df_attacked_images/", str(torch.argmax(lable).item())+"/min_loss_{}.png".format(timestamp))
     min_loss_img.save(min_loss_filename)
 
-    print('feat_dist:',calculate_recon_error(history[-1],dummy_label.argmax().item()))
+    # print('feat_dist:',calculate_recon_error(history[-1],dummy_label.argmax().item()))
 
 
 if __name__ == '__main__':

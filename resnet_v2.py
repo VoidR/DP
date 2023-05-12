@@ -654,7 +654,7 @@ class ResNet(nn.Module):
         # print ('i1s_yhat : ', i1s_yhat)
         grad_L2ylast = i1s_yhat - y_gt
         # print ('right ? ', i1c_mu.norm(), alpha.norm(), self.rcls.norm(),torch.einsum('k,c->kc', alpha, self.rcls).norm(), grad_L2ylast.norm())
-        self.post_temp(grad_L2ylast[0])
+        self.post_temp(grad_L2ylast)
 
         if diff:
             # print ('diff of what')

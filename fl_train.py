@@ -5,7 +5,7 @@ import resnet_v2 as resnet
 # from fl_objs import Server, Client
 import numpy as np
 from dataset import CIFAR10DatasetTrain
-from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize
+from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize, Normalize, HorizontalFlip
 from albumentations.pytorch import ToTensor
 from torch.utils.data import Dataset
 import argparse
@@ -23,20 +23,20 @@ parser = argparse.ArgumentParser(description='Propert ResNets for CIFAR10 in pyt
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet20',
                     choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names) +
-                    ' (default: resnet32)')
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+                    ' (default: resnet20)')
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=32, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
-parser.add_argument('--lr', '--learning-rate', default=1e-2, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-5, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
                     metavar='W', help='weight decay (default: 5e-4)')
-parser.add_argument('--print-freq', '-p', default=1, type=int,
+parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 20)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -54,7 +54,7 @@ parser.add_argument('--save-every', dest='save_every',
                     type=int, default=10)
 parser.add_argument('--enc', dest='encrypt', action='store_true',
                     help='encrypt models')
-parser.add_argument('-k', '--clients', default=1, type=int,
+parser.add_argument('-k', '--clients', default=5, type=int,
                   help='number of clients')
 parser.add_argument('--ce', dest='celoss', action='store_true',
                     help='cross entropy loss')
@@ -70,7 +70,8 @@ parser.add_argument('--seed', default=0, type=int,
 
 def criterion(y_pred, y_cls):
     c = torch.nn.CrossEntropyLoss()
-    y_cls = torch.squeeze(y_cls, dim=1)
+    # y_cls = torch.squeeze(y_cls, dim=1)
+    # print('y_cls',y_cls.shape)
     # print('y_pred:',y_pred.shape,'y_cls:',y_cls.shape,'argmax:',torch.argmax(y_cls, dim = -1).shape)
     # return c(y_pred, torch.argmax(y_cls, dim = -1))
     return c(y_pred, y_cls)
@@ -93,25 +94,30 @@ def main():
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)
     np.random.seed(SEED)
+
+    norm_mean = [0.485, 0.456, 0.406]
+    norm_std = [0.229, 0.224, 0.225]
     transform_train = Compose([
         Resize(32, 32),
-        ShiftScaleRotate(
-            shift_limit=0.1,
-            scale_limit=0.1,
-            rotate_limit=365,
-            p=1.0),
-        RandomBrightnessContrast(p=1.0),
+        # ShiftScaleRotate(
+        #     shift_limit=0.1,
+        #     scale_limit=0.1,
+        #     rotate_limit=365,
+        #     p=1.0),
+        # RandomBrightnessContrast(p=1.0),
+        HorizontalFlip(p=0.5),
+        Normalize(norm_mean, norm_std),
         ToTensor()
     ])
 
     transform_test = Compose([
         Resize(32, 32),
+        Normalize(norm_mean, norm_std),
         ToTensor()
+
     ])
 
     cudnn.benchmark = True
-
-    
 
     batch_size = args.batch_size
 
@@ -271,9 +277,15 @@ def train(train_loader, server, clients, criterion, optimizer, epoch):
             else:
                 target = target.to(0, dtype=torch.float)
 
+            target = torch.squeeze(target, dim=1)
+
+            # print('target',target.shape)
+            
             if args.encrypt:
                 c.receive_model(server.distribute())
                 loss = criterion(c.model(input), target)
+                # print('output',c.model(input).shape)
+                # exit()
                 c.local_computation(target, args.differential)
                 loss.backward()
                 server.aggregate(c.model)

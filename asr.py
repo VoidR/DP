@@ -22,7 +22,7 @@ model.eval()
 # img.show()
 
 transform_test = Compose([
-        Resize(64, 64),
+        Resize(32, 32),
         ToTensor()
     ])
 # 加载攻击后的测试集数据
@@ -59,8 +59,13 @@ for images, target in val_loader:
     # print('outputs',predicted.shape)
 
     
+    
     num_correct += (predicted == target).sum().item()
     total += batch_size
+
+    print('predicted:',predicted,'target: ',target)
+    if total >= 1000:
+        break
 
 # 计算攻击成功率
 asr = num_correct / total

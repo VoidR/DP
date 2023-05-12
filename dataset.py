@@ -1,7 +1,7 @@
 import torch
 import cv2
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate
 from albumentations.pytorch import ToTensor
 from torch.utils.data import Dataset
@@ -146,7 +146,7 @@ class CIFAR10DatasetDLG(Dataset):
             augmented = self.transform(image=im)
             im = augmented['image']
         
-        print('target: ',target,'index: ',self.idx)
+        # print('target: ',target,'index: ',self.idx)
         return im, label
     
 
