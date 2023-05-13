@@ -11,7 +11,7 @@ from torchvision import transforms
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from albumentations.pytorch import ToTensor
-from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize
+from albumentations import Compose, RandomBrightnessContrast, ShiftScaleRotate, Resize , Normalize, HorizontalFlip
 # from feat_dist import calculate_recon_error
 
 import resnet_v2 as resnet
@@ -62,14 +62,29 @@ def main():
     torch.cuda.manual_seed(SEED)
     np.random.seed(SEED)
 
+    # transform_train = Compose([
+    #     Resize(32, 32),
+    #     ShiftScaleRotate(
+    #         shift_limit=0.1,
+    #         scale_limit=0.1,
+    #         rotate_limit=365,
+    #         p=1.0),
+    #     RandomBrightnessContrast(p=1.0),
+    #     ToTensor()
+    # ])
+
+    norm_mean = [0.485, 0.456, 0.406]
+    norm_std = [0.229, 0.224, 0.225]
     transform_train = Compose([
         Resize(32, 32),
-        ShiftScaleRotate(
-            shift_limit=0.1,
-            scale_limit=0.1,
-            rotate_limit=365,
-            p=1.0),
-        RandomBrightnessContrast(p=1.0),
+        # ShiftScaleRotate(
+        #     shift_limit=0.1,
+        #     scale_limit=0.1,
+        #     rotate_limit=365,
+        #     p=1.0),
+        # RandomBrightnessContrast(p=1.0),
+        HorizontalFlip(p=0.5),
+        Normalize(norm_mean, norm_std),
         ToTensor()
     ])
 

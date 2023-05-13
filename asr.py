@@ -10,7 +10,7 @@ from dataset import CIFAR10Test,CIFAR10DatasetTrain
 
 # 加载已经训练好的 PyTorch 模型
 model = resnet.__dict__["resnet20"]().cuda()
-checkpoint = torch.load('path/to20/model.th')
+checkpoint = torch.load('path/to20_lr4/model.th')
 
 # print('checkpoint',len(checkpoint['state_dict']))
 model.load_state_dict(checkpoint['state_dict'])
@@ -70,3 +70,4 @@ for images, target in val_loader:
 # 计算攻击成功率
 asr = num_correct / total
 print('攻击成功率为:', asr)
+print('num_correct:',num_correct,'total:',total)

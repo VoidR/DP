@@ -28,9 +28,9 @@ parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=32, type=int,
+parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
-parser.add_argument('--lr', '--learning-rate', default=1e-5, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
@@ -54,7 +54,7 @@ parser.add_argument('--save-every', dest='save_every',
                     type=int, default=10)
 parser.add_argument('--enc', dest='encrypt', action='store_true',
                     help='encrypt models')
-parser.add_argument('-k', '--clients', default=5, type=int,
+parser.add_argument('-k', '--clients', default=1, type=int,
                   help='number of clients')
 parser.add_argument('--ce', dest='celoss', action='store_true',
                     help='cross entropy loss')
@@ -149,7 +149,7 @@ def main():
                                     weight_decay=args.weight_decay)
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                        milestones=[60, 120, 160], gamma=0.1)
+                                                        milestones=[80, 120, 160], gamma=0.1)
 
     
     # import time
