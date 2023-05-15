@@ -5,7 +5,7 @@ HAM10000/
 __pycache__/
 figs/
 main.py
-centroids.pt
+*.pt
 path/
 .gitignore
 index2.sh
@@ -15,3 +15,7 @@ test.sh
 train copy.sh
 *.sh
 fl_train_*.py
+* copy.*
+dlg*
+rec/
+inversefed/

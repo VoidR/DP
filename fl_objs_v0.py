@@ -35,6 +35,14 @@ class Server(nn.Module):
         for m in self.current_model.fl_modules().items():
             m[1].update(float(lr) / self.counter)
 
+    def get_client_grad(self, client_model):
+        grad = []
+        for m_n, m in client_model.fl_modules().items():
+            current_grad = m.get_grad()
+            grad.append(current_grad)
+
+        return grad
+
             
 
 class Client(nn.Module):
